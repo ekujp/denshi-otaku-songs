@@ -1,0 +1,12 @@
+name: keepalive
+on:
+  schedule:
+    - cron: "0 3 */3 * *"
+  workflow_dispatch:
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          curl -sf "https://fxwtwijpspqijjhosthl.supabase.co/rest/v1/songs?select=id&limit=1" \
+            -H "apikey: sb_publishable_Wc37mqiPYARjc3YwcTwhRw_UreAlhCO"
