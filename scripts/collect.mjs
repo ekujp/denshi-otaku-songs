@@ -34,4 +34,31 @@ for (let from = 0; ; from += 1000) {
   rows.push(...data);
   if (data.length < 1000) break;
 }
-const known = new Set(rows.map((r) => norm(r.title) + "|" +
+const known = new Set(rows.map((r) => norm(r.title) + "|" + norm(r.artist)));
+
+// 2) 公開済みの曲のアーティストから、調べる対象をランダムに選ぶ
+const seeds = shuffle([...new Set(rows.filter((r) => r.status === "published").map((r) => r.artist_group))]).slice(0, SEEDS);
+
+// 3) 類似アーティスト → その人気曲 を候補にする
+const added = [];
+outer: for (const seed of seeds) {
+  const sim = await lf("artist.getsimilar", { artist: seed, limit: "8", autocorrect: "1" });
+  const names = asArray(sim?.similarartists?.artist).map((a) => a.name).slice(0, 5);
+  for (const name of names) {
+    const top = await lf("artist.gettoptracks", { artist: name, limit: "3", autocorrect: "1" });
+    for (const t of asArray(top?.toptracks?.track)) {
+      const key = norm(t.name) + "|" + norm(name);
+      if (known.has(key)) continue;
+      known.add(key);
+      added.push({ title: t.name, artist: name, artist_group: name, status: "pending", source: `Last.fm: ${seed} の類似` });
+      if (added.length >= MAX_NEW) break outer;
+    }
+  }
+}
+
+// 4) 書き込み(同じ曲名+アーティストは無視される)
+if (added.length) {
+  const { error } = await db.from("songs").upsert(added, { onConflict: "title,artist", ignoreDuplicates: true });
+  if (error) { console.error(error.message); process.exit(1); }
+}
+console.log(`調べたアーティスト: ${seeds.length} / 追加した候補: ${added.length}`);
