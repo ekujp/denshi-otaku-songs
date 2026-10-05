@@ -3,8 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="robots" content="noindex">
-<title>候補の承認(管理用)</title>
+<title>電子音楽 × 女性ボーカル 1曲ずつ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;700;900&display=swap" rel="stylesheet">
 <style>
 :root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
 --bg:#f3f1fb;--card:#fff;--ink:#1b1740;--sub:#6a6590;--line:#d9d4f0;--a:#e0267f;--b:#0a8fb0;--chip:#ebe7fa}
@@ -39,113 +40,132 @@ button:focus-visible,a:focus-visible{outline:3px solid var(--b);outline-offset:2
 .opts button{padding:6px 13px;font-weight:400;border-radius:999px}
 .opts button[aria-pressed="true"]{background:var(--b);border-color:var(--b);color:#04202a;font-weight:700}
 .msg{min-height:20px;font-size:13px;color:var(--sub);margin:10px 0 0}
-.card input{width:100%;font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);margin:2px 0 8px}
-.lbl{font-size:12px;color:var(--sub)}
-.act{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
-.act .ok{background:var(--b);border-color:var(--b);color:#04202a}
-.act .ng{background:var(--a);border-color:var(--a);color:#fff}
-.sub{display:flex;gap:8px;margin-top:10px}
-.sub button{flex:1;font-weight:400;padding:8px}
-.login input{width:100%;font:inherit;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);margin:4px 0 10px}
+.links a.sp{background:#1DB954;border-color:#1DB954;color:#04140a;font-weight:700}
+.links a.am{background:#FA243C;border-color:#FA243C;color:#fff;font-weight:700}
+.links a.yt{background:#FF0000;border-color:#FF0000;color:#fff;font-weight:700}
 </style>
 </head>
 <body>
 <main>
-<h1>候補の承認(管理用)</h1>
-<section class="song login" id="login">
-  <div class="lbl">管理者のメールアドレス</div>
-  <input id="em" type="email" autocomplete="username">
-  <div class="lbl">パスワード</div>
-  <input id="pw" type="password" autocomplete="current-password">
-  <button id="go" style="width:100%">ログイン</button>
-  <p class="msg" id="lmsg"></p>
-</section>
-<section class="song card" id="work" hidden>
+<h1>電子音楽 × 女性ボーカル(キャラソン・アイドル・同人)を1曲ずつ</h1>
+<section class="song" aria-live="polite">
   <div class="note" id="count"></div>
-  <div class="lbl">曲名</div><input id="t">
-  <div class="lbl">アーティスト</div><input id="a">
-  <div class="lbl">グループ名(「同じアーティスト」でまとめる名前)</div><input id="g">
-  <p class="note" id="src"></p>
-  <h2>聴いて確かめる</h2>
+  <div class="title" id="title"></div>
+  <p class="artist" id="artist"></p>
+  <div class="tags" id="tags"></div>
+  <h2>聴く</h2>
   <div class="links" id="links"></div>
-  <div class="act">
-    <button class="ok" id="okb">採用</button>
-    <button class="ng" id="ngb">却下</button>
-    <button id="skb">スキップ</button>
+  <p class="hint" id="hint"></p>
+  <div class="next">
+    <button id="nArtist">同じアーティスト</button>
+    <button id="nGenre">同じジャンル</button>
+    <button id="nRandom">ランダム</button>
   </div>
-  <div class="sub"><button id="undo">直前の操作を取り消す</button><button id="out">ログアウト</button></div>
   <p class="msg" id="msg"></p>
+</section>
+<section class="vote">
+  <h2>この曲のジャンルを登録(任意・複数選択可)</h2>
+  <div class="opts" id="opts"></div>
+  <p class="hint">投票は匿名で、ログインは不要です。同じ曲・同じジャンルへの投票は1人1回までで、押し直すと取り消せます。票数はみんなの合計です。</p>
 </section>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-const db=supabase.createClient("https://fxwtwijpspqijjhosthl.supabase.co","sb_publishable_Wc37mqiPYARjc3YwcTwhRw_UreAlhCO");
+const SUPABASE_URL="https://fxwtwijpspqijjhosthl.supabase.co";
+const SUPABASE_KEY="sb_publishable_Wc37mqiPYARjc3YwcTwhRw_UreAlhCO"; // 公開用キー(埋め込んで問題ないもの)
+const db=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const GENRES=["Classic House","Tech House","Progressive/Melodic House","Big Room","Tropical House","Bounce House/Slap House","Deep House","Electro House","Pop House","Classic Trance","Progressive Trance","Trance House (Trouse)","Psytrance","Tribal Circuit","Melodic Circuit","Disco House/Nu-Disco","Dubstep/Brostep","Melodic Dubstep","Sadboi","EDM Remix","Breakbeats/Drum and Bass","Future House","Trap","Hardstyle"];
 const $=id=>document.getElementById(id);
-let list=[],last=null,busy=false;
+let SONGS=[],counts={},mine={},cur=null,busy=false;
 
-async function start(){
-  const {data:{session}}=await db.auth.getSession();
-  if(!session||!session.user.email){$("login").hidden=false;$("work").hidden=true;return}
-  const ad=await db.from("admins").select("user_id");
-  if(ad.error||!ad.data||!ad.data.length){
-    $("login").hidden=false;$("work").hidden=true;
-    $("lmsg").textContent="このアカウントは管理者ではありません。";return;
-  }
-  const r=await db.from("songs").select("*").eq("status","pending").order("id").limit(500);
-  if(r.error){$("lmsg").textContent="読み込みエラー: "+r.error.message;return}
-  list=r.data;
-  $("login").hidden=true;$("work").hidden=false;
-  show();
-}
-function q(){return encodeURIComponent(($("a").value+" "+$("t").value).trim())}
-function show(msg){
-  $("msg").textContent=msg||"";
-  const has=list.length>0;
-  ["t","a","g","okb","ngb","skb"].forEach(i=>$(i).disabled=!has);
-  if(!has){
-    $("count").textContent="承認待ちの候補はありません。";
-    ["t","a","g"].forEach(i=>$(i).value="");$("src").textContent="";$("links").innerHTML="";return;
-  }
-  const s=list[0];
-  $("count").textContent="承認待ち 残り"+list.length+"件";
-  $("t").value=s.title;$("a").value=s.artist;$("g").value=s.artist_group;
-  $("src").textContent=s.source?"出どころ: "+s.source:"";
+function setCounts(rows){counts={};(rows||[]).forEach(r=>{(counts[r.song_id]=counts[r.song_id]||{})[r.genre]=r.n})}
+const topGenres=s=>Object.entries(counts[s.id]||{}).filter(e=>e[1]>0).sort((a,b)=>b[1]-a[1]);
+const q=s=>encodeURIComponent((s.artist+" "+s.title).trim());
+const pick=list=>{const o=list.filter(x=>x!==cur);return o.length?o[Math.floor(Math.random()*o.length)]:null};
+
+function show(s,msg){
+  cur=s;
+  $("count").textContent="全"+SONGS.length+"曲のうちの1曲";
+  $("title").textContent=s.title;
+  $("artist").textContent=s.artist;
+  const T=$("tags");T.innerHTML="";
+  const tg=topGenres(s);
+  if(!tg.length){const e=document.createElement("span");e.className="tag";e.textContent="ジャンル未登録";T.appendChild(e)}
+  tg.forEach(([g,n])=>{const e=document.createElement("span");e.className="tag";e.textContent=g+" ("+n+")";T.appendChild(e)});
   const L=$("links");L.innerHTML="";
-  [["Spotifyで探す","https://open.spotify.com/search/"],["Apple Musicで探す","https://music.apple.com/jp/search?term="],["YouTubeで探す","https://www.youtube.com/results?search_query="]].forEach(([n,u],i)=>{
-    const e=document.createElement("a");e.textContent=n;e.target="_blank";e.rel="noopener";if(i==0)e.className="main";
-    e.onclick=()=>{e.href=u+q()};e.href=u+q();L.appendChild(e);
+  const add=(label,href,cls)=>{const e=document.createElement("a");e.textContent=label;e.href=href;e.target="_blank";e.rel="noopener";if(cls)e.className=cls;L.appendChild(e)};
+  if(s.spotify_url){add("Spotifyで聴く",s.spotify_url,"sp");$("hint").textContent=""}
+  else if(s.apple_music_url){add("Apple Musicで聴く",s.apple_music_url,"am");$("hint").textContent=""}
+  else if(s.video_url){add("動画で聴く",s.video_url,/youtube\.com|youtu\.be/.test(s.video_url)?"yt":"");$("hint").textContent="サブスク配信が見つからないため動画を表示しています。"}
+  else{
+    add("Spotifyで探す","https://open.spotify.com/search/"+q(s),"sp");
+    add("Apple Musicで探す","https://music.apple.com/jp/search?term="+q(s),"am");
+    add("YouTubeで探す","https://www.youtube.com/results?search_query="+q(s),"yt");
+    $("hint").textContent="確認済みのリンクがまだ無いため、検索リンクを表示しています。";
+  }
+  $("msg").textContent=msg||"";
+  renderVote();
+}
+function renderVote(){
+  const my=mine[cur.id]||new Set();
+  const O=$("opts");O.innerHTML="";
+  GENRES.forEach(g=>{
+    const b=document.createElement("button");b.textContent=g;
+    b.setAttribute("aria-pressed",my.has(g));
+    b.onclick=()=>toggle(g);
+    O.appendChild(b);
   });
 }
-["t","a"].forEach(i=>$(i).oninput=()=>{const s=document.querySelectorAll("#links a");const u=["https://open.spotify.com/search/","https://music.apple.com/jp/search?term=","https://www.youtube.com/results?search_query="];s.forEach((e,k)=>e.href=u[k]+q())});
-
-async function decide(status){
-  if(busy||!list.length)return;busy=true;
-  const s=list[0];
-  const upd={status,title:$("t").value.trim(),artist:$("a").value.trim(),artist_group:$("g").value.trim()||$("a").value.trim()};
-  const r=await db.from("songs").update(upd).eq("id",s.id).select();
-  if(r.error||!r.data.length){busy=false;show("保存できませんでした: "+(r.error?r.error.message:"権限がありません"));return}
-  last={prev:s};list.shift();busy=false;
-  show(status==="published"?"採用しました。":"却下しました。");
-}
-$("okb").onclick=()=>decide("published");
-$("ngb").onclick=()=>decide("rejected");
-$("skb").onclick=()=>{if(list.length>1){list.push(list.shift())}show("スキップしました。")};
-$("undo").onclick=async()=>{
-  if(!last||busy)return;busy=true;
-  const p=last.prev;
-  const r=await db.from("songs").update({status:"pending",title:p.title,artist:p.artist,artist_group:p.artist_group}).eq("id",p.id).select();
+async function toggle(g){
+  if(busy)return;busy=true;
+  const id=cur.id;
+  try{
+    const {data:{session}}=await db.auth.getSession();
+    if(!session){const r=await db.auth.signInAnonymously();if(r.error)throw r.error}
+    if(mine[id]&&mine[id].has(g)){
+      const r=await db.from("votes").delete().match({song_id:id,genre:g});if(r.error)throw r.error;
+      mine[id].delete(g);
+    }else{
+      const r=await db.from("votes").insert({song_id:id,genre:g});if(r.error)throw r.error;
+      (mine[id]=mine[id]||new Set()).add(g);
+    }
+    const c=await db.from("genre_counts").select("*");if(c.error)throw c.error;
+    setCounts(c.data);
+    show(cur,"保存しました。");
+  }catch(e){$("msg").textContent="保存できませんでした: "+(e.message||e)}
   busy=false;
-  if(r.error){show("取り消せませんでした: "+r.error.message);return}
-  list.unshift(p);last=null;show("取り消しました。");
+}
+$("nRandom").onclick=()=>cur&&show(pick(SONGS));
+$("nArtist").onclick=()=>{
+  if(!cur)return;
+  const s=pick(SONGS.filter(x=>x.artist_group===cur.artist_group));
+  s?show(s):show(pick(SONGS),"このアーティストの他の曲は未登録のため、ランダムで選びました。");
 };
-$("go").onclick=async()=>{
-  $("lmsg").textContent="ログイン中…";
-  const r=await db.auth.signInWithPassword({email:$("em").value.trim(),password:$("pw").value});
-  if(r.error){$("lmsg").textContent="ログインできませんでした: "+r.error.message;return}
-  $("lmsg").textContent="";start();
+$("nGenre").onclick=()=>{
+  if(!cur)return;
+  const mineG=topGenres(cur).map(e=>e[0]);
+  const s=pick(SONGS.filter(x=>topGenres(x).some(e=>mineG.includes(e[0]))));
+  s?show(s):show(pick(SONGS),mineG.length?"同じジャンルの曲がまだ無いため、ランダムで選びました。":"この曲はジャンル未登録のため、ランダムで選びました。");
 };
-$("out").onclick=async()=>{await db.auth.signOut();list=[];start()};
-start();
+async function init(){
+  $("title").textContent="読み込み中…";
+  try{
+    const [s,c]=await Promise.all([db.from("songs").select("*"),db.from("genre_counts").select("*")]);
+    if(s.error)throw s.error;if(c.error)throw c.error;
+    SONGS=s.data;setCounts(c.data);
+    const {data:{session}}=await db.auth.getSession();
+    if(session){
+      const v=await db.from("votes").select("song_id,genre");
+      if(!v.error)(v.data||[]).forEach(r=>{(mine[r.song_id]=mine[r.song_id]||new Set()).add(r.genre)});
+    }
+    if(!SONGS.length){$("title").textContent="曲がまだありません";return}
+    show(SONGS[Math.floor(Math.random()*SONGS.length)]);
+  }catch(e){
+    $("title").textContent="読み込めませんでした";
+    $("msg").textContent="エラー: "+(e.message||e);
+  }
+}
+init();
 </script>
 </body>
 </html>

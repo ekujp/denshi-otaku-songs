@@ -40,6 +40,9 @@ button:focus-visible,a:focus-visible{outline:3px solid var(--b);outline-offset:2
 .opts button{padding:6px 13px;font-weight:400;border-radius:999px}
 .opts button[aria-pressed="true"]{background:var(--b);border-color:var(--b);color:#04202a;font-weight:700}
 .msg{min-height:20px;font-size:13px;color:var(--sub);margin:10px 0 0}
+.links a.sp{background:#1DB954;border-color:#1DB954;color:#04140a;font-weight:700}
+.links a.am{background:#FA243C;border-color:#FA243C;color:#fff;font-weight:700}
+.links a.yt{background:#FF0000;border-color:#FF0000;color:#fff;font-weight:700}
 </style>
 </head>
 <body>
@@ -90,14 +93,14 @@ function show(s,msg){
   if(!tg.length){const e=document.createElement("span");e.className="tag";e.textContent="ジャンル未登録";T.appendChild(e)}
   tg.forEach(([g,n])=>{const e=document.createElement("span");e.className="tag";e.textContent=g+" ("+n+")";T.appendChild(e)});
   const L=$("links");L.innerHTML="";
-  const add=(label,href,main)=>{const e=document.createElement("a");e.textContent=label;e.href=href;e.target="_blank";e.rel="noopener";if(main)e.className="main";L.appendChild(e)};
-  if(s.spotify_url){add("Spotifyで聴く",s.spotify_url,1);$("hint").textContent=""}
-  else if(s.apple_music_url){add("Apple Musicで聴く",s.apple_music_url,1);$("hint").textContent=""}
-  else if(s.video_url){add("動画で聴く",s.video_url,1);$("hint").textContent="サブスク配信が見つからないため動画を表示しています。"}
+  const add=(label,href,cls)=>{const e=document.createElement("a");e.textContent=label;e.href=href;e.target="_blank";e.rel="noopener";if(cls)e.className=cls;L.appendChild(e)};
+  if(s.spotify_url){add("Spotifyで聴く",s.spotify_url,"sp");$("hint").textContent=""}
+  else if(s.apple_music_url){add("Apple Musicで聴く",s.apple_music_url,"am");$("hint").textContent=""}
+  else if(s.video_url){add("動画で聴く",s.video_url,/youtube\.com|youtu\.be/.test(s.video_url)?"yt":"");$("hint").textContent="サブスク配信が見つからないため動画を表示しています。"}
   else{
-    add("Spotifyで探す","https://open.spotify.com/search/"+q(s),1);
-    add("Apple Musicで探す","https://music.apple.com/jp/search?term="+q(s));
-    add("YouTubeで探す","https://www.youtube.com/results?search_query="+q(s));
+    add("Spotifyで探す","https://open.spotify.com/search/"+q(s),"sp");
+    add("Apple Musicで探す","https://music.apple.com/jp/search?term="+q(s),"am");
+    add("YouTubeで探す","https://www.youtube.com/results?search_query="+q(s),"yt");
     $("hint").textContent="確認済みのリンクがまだ無いため、検索リンクを表示しています。";
   }
   $("msg").textContent=msg||"";
